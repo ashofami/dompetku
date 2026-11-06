@@ -105,14 +105,6 @@ alter table public.profiles enable row level security;
 alter table public.categories enable row level security;
 alter table public.transactions enable row level security;
 
-grant select, insert, update, delete on public.profiles to authenticated;
-grant select, insert, update, delete on public.categories to authenticated;
-grant select, insert, update, delete on public.transactions to authenticated;
-
-grant select on public.profiles to anon;
-grant select on public.categories to anon;
-grant select on public.transactions to anon;
-
 create policy "Profiles are viewable by owner"
 on public.profiles for select
 using (auth.uid() = id);
