@@ -324,7 +324,6 @@ function AppLayout() {
           <div className="brand-mark">D</div>
           <div>
             <p className="brand-name">DompetKu</p>
-            <span>Manage Your Money</span>
           </div>
         </div>
 
@@ -358,7 +357,6 @@ function AppLayout() {
       <div className="content-panel">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Personal Finance Management</p>
             <h1>DompetKu</h1>
           </div>
           <div className="topbar-badge">
