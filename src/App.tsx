@@ -10,6 +10,9 @@ import {
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  Download,
+  FileSpreadsheet,
+  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -510,12 +513,26 @@ function RegisterPage() {
 
 function DashboardPage() {
   const { transactions } = useFinance()
+  const { user } = useAuth()
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [printRequestedAt, setPrintRequestedAt] = useState<Date | null>(null)
 
   const totalIncome = useMemo(() => sumTransactions(transactions, 'income'), [transactions])
   const totalExpense = useMemo(() => sumTransactions(transactions, 'expense'), [transactions])
   const totalBalance = totalIncome - totalExpense
+  const reportTransactions = useMemo(
+    () => [...transactions].sort((a, b) => a.transaction_date.localeCompare(b.transaction_date)),
+    [transactions],
+  )
+
+  useEffect(() => {
+    if (!printRequestedAt) return
+
+    const printTimeout = window.setTimeout(() => window.print(), 0)
+
+    return () => window.clearTimeout(printTimeout)
+  }, [printRequestedAt])
 
   const monthIncome = useMemo(
     () => transactions.filter((item) => item.type === 'income' && matchesMonth(item.transaction_date, selectedMonth, selectedYear)).reduce((total, item) => total + Number(item.amount || 0), 0),
@@ -555,6 +572,39 @@ function DashboardPage() {
     [transactions],
   )
 
+  const exportCsv = () => {
+    const rows: Array<Array<string | number>> = [
+      ['Laporan Pertanggungjawaban Bendahara Sekolah'],
+      ['Nama', user?.full_name ?? 'Pengguna'],
+      ['Tanggal ekspor', formatDate(new Date().toISOString().slice(0, 10))],
+      ['Total Saldo', formatRupiah(totalBalance)],
+      ['Total Pendapatan', formatRupiah(totalIncome)],
+      ['Total Pengeluaran', formatRupiah(totalExpense)],
+      [],
+      ['Tanggal', 'Jenis', 'Kategori', 'Keterangan', 'Nominal (Rp)', 'Metode Pembayaran', 'Catatan'],
+      ...reportTransactions.map((item) => [
+        item.transaction_date,
+        item.type === 'income' ? 'Pendapatan' : 'Pengeluaran',
+        item.category,
+        item.description,
+        Number(item.amount),
+        item.payment_method ?? '',
+        item.notes ?? '',
+      ]),
+    ]
+    const csv = `\uFEFF${rows.map((row) => row.map((value) => {
+      const text = String(value)
+      const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text
+      return `"${safeText.replaceAll('"', '""')}"`
+    }).join(',')).join('\r\n')}`
+    const downloadUrl = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = `laporan-bendahara-${getTodayISO()}.csv`
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+  }
+
   return (
     <div className="dashboard-page">
       <div className="toolbar-row">
@@ -582,6 +632,79 @@ function DashboardPage() {
           </label>
         </div>
       </div>
+
+      <section className="report-export" aria-labelledby="report-export-title">
+        <div>
+          <h2 id="report-export-title">Export Laporan</h2>
+          <p>Unduh ringkasan saldo dan seluruh rincian transaksi. Untuk PDF, pilih “Simpan sebagai PDF” di dialog cetak.</p>
+        </div>
+        <div className="report-export-actions">
+          <button type="button" className="report-button report-button-pdf" onClick={() => setPrintRequestedAt(new Date())}>
+            <FileText size={17} />
+            Export PDF
+          </button>
+          <button type="button" className="report-button report-button-csv" onClick={exportCsv}>
+            <FileSpreadsheet size={17} />
+            <Download size={16} />
+            Export Excel / CSV
+          </button>
+        </div>
+      </section>
+
+      <section className="print-report" aria-label="Laporan pertanggungjawaban bendahara sekolah">
+        <h1>Laporan Pertanggungjawaban Bendahara Sekolah</h1>
+        <p>Nama: {user?.full_name || 'Pengguna'}</p>
+        <p>Tanggal ekspor: {printRequestedAt ? formatDate(printRequestedAt.toISOString().slice(0, 10)) : ''}</p>
+
+        <div className="print-report-summary">
+          <div><span>Total Saldo</span><strong>{formatRupiah(totalBalance)}</strong></div>
+          <div><span>Total Pendapatan</span><strong>{formatRupiah(totalIncome)}</strong></div>
+          <div><span>Total Pengeluaran</span><strong>{formatRupiah(totalExpense)}</strong></div>
+        </div>
+
+        <h2>Rincian Transaksi</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Jenis</th>
+              <th>Kategori</th>
+              <th>Keterangan</th>
+              <th>Metode Pembayaran</th>
+              <th>Catatan</th>
+              <th>Nominal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reportTransactions.length ? reportTransactions.map((item) => (
+              <tr key={item.id}>
+                <td>{formatDate(item.transaction_date)}</td>
+                <td>{item.type === 'income' ? 'Pendapatan' : 'Pengeluaran'}</td>
+                <td>{item.category}</td>
+                <td>{item.description}</td>
+                <td>{item.payment_method || '-'}</td>
+                <td>{item.notes || '-'}</td>
+                <td>{formatRupiah(Number(item.amount))}</td>
+              </tr>
+            )) : (
+              <tr><td colSpan={7}>Belum ada transaksi.</td></tr>
+            )}
+          </tbody>
+        </table>
+
+        <div className="print-report-signatures">
+          <div>
+            <p>Mengetahui,<br />Kepala Sekolah</p>
+            <span />
+            <strong>(........................................)</strong>
+          </div>
+          <div>
+            <p>Bendahara</p>
+            <span />
+            <strong>({user?.full_name || '........................................'})</strong>
+          </div>
+        </div>
+      </section>
 
       <div className="summary-grid">
         <StatCard title="Total Saldo" value={formatRupiah(totalBalance)} tone="neutral" />
