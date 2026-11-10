@@ -18,7 +18,6 @@ import {
   Search,
   Settings,
   Trash2,
-  Wallet,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -355,16 +354,6 @@ function AppLayout() {
       </aside>
 
       <div className="content-panel">
-        <header className="topbar">
-          <div>
-            <h1>DompetKu</h1>
-          </div>
-          <div className="topbar-badge">
-            <Wallet size={16} />
-            {user?.email}
-          </div>
-        </header>
-
         <main className="page-content">
           <Outlet />
         </main>
